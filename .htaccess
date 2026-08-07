@@ -1,0 +1,45 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Serve existing files directly (CSS, JS, images, etc.)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Handle PHP files directly
+  RewriteRule ^send\.php$ - [L]
+
+  # Handle referrer paths (soham, saksham, harsh, harshit)
+  RewriteRule ^(soham|saksham|harsh|harshit)/?$ /index.html [L]
+
+  # SPA routing - redirect all other paths to index.html
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Security headers
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+# Disable directory listing
+Options -Indexes
+
+# Cache static assets
+<IfModule mod_expires.c>
+  ExpiresActive on
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType application/octet-stream "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/x-icon "access plus 1 year"
+</IfModule>
+
+# Gzip compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/plain
+  AddOutputFilterByType DEFLATE text/css
+  AddOutputFilterByType DEFLATE application/javascript
+  AddOutputFilterByType DEFLATE application/json
+  AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>

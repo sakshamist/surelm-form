@@ -1,0 +1,365 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+.page {
+  --ink: #0a0c10;
+  --surface: #12151b;
+  --bone: #ece9e2;
+  --muted: #8b93a1;
+  --hairline: #262b34;
+  --signal: #e8a33d;
+  --ledger: #5b8c7b;
+  --error: #d9694f;
+
+  background: var(--ink);
+  color: var(--bone);
+  min-height: 100vh;
+  font-family: "Inter", -apple-system, sans-serif;
+  display: flex;
+  justify-content: center;
+  padding: 64px 24px 120px;
+}
+
+.container {
+  width: 100%;
+  max-width: 720px;
+}
+
+.eyebrow {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ledger);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 0 3px rgba(232, 163, 61, 0.15);
+}
+
+.headline {
+  font-family: "Fraunces", serif;
+  font-size: clamp(32px, 5vw, 44px);
+  font-weight: 500;
+  line-height: 1.15;
+  margin: 0 0 16px;
+}
+
+.lede {
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 52ch;
+  margin: 0 0 8px;
+}
+
+.ledeStrong {
+  color: var(--bone);
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 52ch;
+  margin: 0 0 48px;
+}
+
+.form {
+  border-top: 1px solid var(--hairline);
+}
+
+.field {
+  display: flex;
+  gap: 24px;
+  padding: 32px 0;
+  border-bottom: 1px solid var(--hairline);
+  position: relative;
+}
+
+.index {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  color: var(--muted);
+  padding-top: 2px;
+  min-width: 28px;
+  flex-shrink: 0;
+}
+
+.field.active .index {
+  color: var(--signal);
+}
+
+.fieldBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.label {
+  font-size: 15px;
+  font-weight: 500;
+  margin: 0 0 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.required {
+  color: var(--signal);
+  font-size: 13px;
+}
+
+.hint {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 0 0 14px;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  color: var(--bone);
+  font-family: "Inter", sans-serif;
+  font-size: 15px;
+  padding: 12px 14px;
+  transition: border-color 0.15s ease;
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--signal);
+}
+
+.inputError,
+.textareaError {
+  border-color: var(--error);
+}
+
+.inputError:focus,
+.textareaError:focus {
+  border-color: var(--error);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.5;
+}
+
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.radioOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 14.5px;
+  transition: border-color 0.15s ease;
+}
+
+.radioOption:has(input:checked) {
+  border-color: var(--signal);
+}
+
+.radioOption input {
+  accent-color: var(--signal);
+}
+
+.fileDrop {
+  border: 1px dashed var(--hairline);
+  border-radius: 3px;
+  padding: 18px 14px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.fileDrop:hover {
+  border-color: var(--ledger);
+  color: var(--bone);
+}
+
+.fileDropError {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.fileName {
+  color: var(--signal);
+}
+
+.fieldError {
+  display: block;
+  color: var(--error);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.charCount {
+  display: block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+  text-align: right;
+}
+
+.submitRow {
+  padding-top: 40px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.submitButton {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--signal);
+  color: var(--ink);
+  border: none;
+  border-radius: 3px;
+  padding: 14px 28px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.submitButton:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.submitButton:has(.spinner) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--ink);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.status {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+}
+
+.status.error {
+  color: var(--error);
+}
+
+.status.success {
+  color: var(--ledger);
+}
+
+.successState {
+  padding: 64px 0;
+  text-align: center;
+}
+
+.successState .headline {
+  font-size: 28px;
+}
+
+.backButton {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--signal);
+  color: var(--ink);
+  border: none;
+  border-radius: 3px;
+  padding: 14px 28px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  margin-top: 24px;
+  display: inline-block;
+}
+
+.backButton:hover {
+  opacity: 0.85;
+}
+
+.referralBanner {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.referralBanner .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+.field.email .index,
+.field.phone .index,
+.field.linkedin .index {
+  color: var(--muted);
+}
+
+.field.email:hover .index,
+.field.phone:hover .index,
+.field.linkedin:hover .index {
+  color: var(--signal);
+}
+
+@media (max-width: 560px) {
+  .field {
+    gap: 14px;
+  }
+}
