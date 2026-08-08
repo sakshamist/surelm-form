@@ -352,13 +352,35 @@ button {
   opacity: 0.85;
 }
 
-.referralLabel {
+.referralBox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  padding: 12px 14px;
+  margin: 24px 0 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
   color: var(--muted);
 }
 
-.referralLabel strong {
+.referralBox[hidden] {
+  display: none;
+}
+
+.referralBox strong {
   color: var(--signal);
   font-weight: 500;
+}
+
+.referralBox .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 0 3px rgba(232, 163, 61, 0.15);
 }
 
 .field.email .index,

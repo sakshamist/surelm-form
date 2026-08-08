@@ -15,9 +15,6 @@
         <div class="eyebrow">
           <span class="dot"></span>
           Page 1 of 1 &middot; No rigid roles
-          <span class="referralLabel" id="referralLabel" hidden>
-            &middot; Referred by <strong id="referralName"></strong>
-          </span>
         </div>
         <h1 class="headline">Join SureLM</h1>
         <p class="lede">
@@ -29,6 +26,11 @@
         </p>
 
         <form class="form" id="joinForm" novalidate>
+          <div class="referralBox" id="referralBox" hidden>
+            <span class="dot"></span>
+            Referred by <strong id="referralName"></strong>
+          </div>
+
           <input type="hidden" name="referred_by" id="referredBy" value="" />
 
           <div class="field" id="field-fullname">
