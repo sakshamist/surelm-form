@@ -60,7 +60,7 @@ Originally built as a **React + TypeScript + Vite** application, the project was
 | ---------- | ----------------------------------------------------- |
 | Frontend   | Vanilla HTML5, CSS3, ES5-compatible JavaScript         |
 | Styling    | Custom CSS with design tokens (CSS custom properties) |
-| Backend    | PHP 5.6+ (`send.php` using `mail()`)                  |
+| Backend    | PHP 5.6+ (`quokka.php` using `mail()`)                  |
 | Routing    | Apache `mod_rewrite` (`.htaccess`)                    |
 | Persistence| Browser `localStorage`                                |
 | Fonts      | Google Fonts: Inter, Fraunces, IBM Plex Mono          |
@@ -75,7 +75,7 @@ No frameworks. No package manager. No build tooling. JavaScript is written in an
 .
 ├── index.html              Main form page
 ├── thank-you.html          Success page
-├── send.php                PHP email handler (multipart, file attachments)
+├── quokka.php               PHP email handler (multipart, file attachments)
 ├── .htaccess               Apache rewrite rules + security headers + caching
 ├── favicon.svg             Site icon
 ├── fonts.css               Google Fonts loading
@@ -155,11 +155,11 @@ Allowed file types:
 1. User clicks **Submit**
 2. `validateAll()` runs; on failure, inline errors + summary message render and submission halts
 3. A `FormData` object is built with all 11 fields
-4. `fetch('send.php', { method: 'POST', body: data })` sends the request
+4. `fetch('quokka.php', { method: 'POST', body: data })` sends the request
 5. Response is parsed as JSON:
    - `success` → draft cleared, button shows spinner state, after 1 s `window.location.href = 'thank-you.html'`
    - `error` or HTTP failure → error message shown, button restored
-6. `send.php` builds a multipart MIME email (text body + base64-encoded attachments) and sends it with PHP's `mail()`
+6. `quokka.php` builds a multipart MIME email (text body + base64-encoded attachments) and sends it with PHP's `mail()`
 
 ---
 
@@ -198,7 +198,7 @@ No build step. Upload all files to any PHP/Apache host (cPanel, FTP, etc.):
 
 ## Configuration
 
-**Recipient email** — open `send.php` and change the `$to` variable:
+**Recipient email** — open `quokka.php` and change the `$to` variable:
 
 ```php
 $to = "your-email@example.com";
@@ -237,5 +237,5 @@ RewriteRule ^(soham|saksham|harsh|harshit|newslug)/?$ index.html [L]
 **Earlier — React/TypeScript implementation**
 - React 19 + TypeScript + Vite 8 SPA with `react-router-dom`
 - `useReferral` hook reading the first path segment against a slug map
-- CSS Modules design system; PHP `send.php` unchanged throughout
+- CSS Modules design system; PHP `quokka.php` unchanged throughout
 - Added inline validation errors, spinner, drag-and-drop, localStorage drafts, char counters

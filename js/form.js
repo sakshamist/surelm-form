@@ -341,7 +341,7 @@
     window.SureLMStorage.clear();
 
     // Use native form submission (bypasses bot-detection on fetch/AJAX)
-    // The form has action="send.php" method="POST" enctype="multipart/form-data"
+    // The form has action="quokka.php" method="POST" enctype="multipart/form-data"
     // Remove the event listener to allow natural submission
     var form = $('joinForm');
     form.removeEventListener('submit', handleSubmit);

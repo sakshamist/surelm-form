@@ -1,7 +1,7 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
-  # Serve existing files and directories directly (css/, js/, send.php, etc.)
+  # Serve existing files and directories directly (css/, js/, quokka.php, etc.)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
