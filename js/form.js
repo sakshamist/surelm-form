@@ -381,12 +381,12 @@
     var form = $('joinForm');
     if (!form) return;
 
-    // Referral: show banner and fill hidden field (takes precedence over saved data).
+    // Referral: show in eyebrow and fill hidden field (takes precedence over saved data).
     var referrerName = window.SureLMReferral.getReferrerName();
     if (referrerName) {
       formData.referred_by = referrerName;
-      $('referralText').textContent = 'Referred by ' + referrerName;
-      $('referralBanner').hidden = false;
+      $('referralName').textContent = referrerName;
+      $('referralLabel').hidden = false;
     }
 
     // Restore saved data (does not include files).
