@@ -331,6 +331,38 @@ button {
   font-size: 28px;
 }
 
+.thankYouContent {
+  padding: 64px 0;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.thankYouHeadline {
+  font-family: "Fraunces", serif;
+  font-size: clamp(32px, 5vw, 44px);
+  font-weight: 500;
+  line-height: 1.15;
+  margin: 0 0 32px;
+}
+
+.thankYouText {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--bone);
+  margin: 0 0 20px;
+}
+
+.thankYouStrong {
+  font-size: 16px;
+  line-height: 1.7;
+  margin: 32px 0;
+}
+
+.thankYouStrong strong {
+  color: var(--signal);
+  font-weight: 500;
+}
+
 .backButton {
   font-family: "IBM Plex Mono", monospace;
   font-size: 13px;
