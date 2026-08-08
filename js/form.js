@@ -337,42 +337,15 @@
     showError('');
     setStatus('submitting');
 
-    var data = new FormData();
-    data.append('fullname', formData.fullname);
-    data.append('email', formData.email);
-    data.append('phone', formData.phone);
-    data.append('linkedin', formData.linkedin);
-    data.append('contribution', formData.contribution);
-    data.append('interests', formData.interests);
-    data.append('work_showcase', formData.work_showcase);
-    data.append('ownership', formData.ownership);
-    data.append('involvement', formData.involvement);
-    data.append('referred_by', formData.referred_by);
+    // Clear localStorage before native form submission
+    window.SureLMStorage.clear();
 
-    if (formData.resume) data.append('resume', formData.resume);
-    if (formData.other) data.append('other', formData.other);
-
-    fetch('send.php', { method: 'POST', body: data })
-      .then(function (res) {
-        return res.json().catch(function () {
-          throw new Error('Something went wrong.');
-        });
-      })
-      .then(function (result) {
-        if (!result || result.error) {
-          throw new Error(result && result.error ? result.error : 'Something went wrong.');
-        }
-        // Success
-        window.SureLMStorage.clear();
-        setStatus('success');
-        window.setTimeout(function () {
-          window.location.href = 'thank-you.html';
-        }, 1000);
-      })
-      .catch(function (err) {
-        setStatus('idle');
-        showError(err instanceof Error ? err.message : 'Something went wrong.');
-      });
+    // Use native form submission (bypasses bot-detection on fetch/AJAX)
+    // The form has action="send.php" method="POST" enctype="multipart/form-data"
+    // Remove the event listener to allow natural submission
+    var form = $('joinForm');
+    form.removeEventListener('submit', handleSubmit);
+    form.submit();
   }
 
   /* ---------- init ---------- */

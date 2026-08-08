@@ -1,17 +1,9 @@
 <?php
-header('Content-Type: application/json; charset=UTF-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
+// Disable error display for production
+error_reporting(0);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed']);
+    header('Location: index.html');
     exit;
 }
 
@@ -77,19 +69,11 @@ foreach (['resume', 'other'] as $file_key) {
 $body .= "--{$boundary}--";
 
 if (mail($to, $subject, $body, $headers)) {
-    $response = [
-        'success' => true,
-        'message' => 'Application submitted successfully',
-        'files_attached' => $files_attached
-    ];
-    http_response_code(200);
-    echo json_encode($response);
+    // Success - redirect to thank you page
+    header('Location: thank-you.html');
+    exit;
 } else {
-    $response = [
-        'error' => 'Failed to send email. Please try again later.'
-    ];
-    http_response_code(500);
-    echo json_encode($response);
+    // Failure - redirect back to form with error (could be enhanced with a query param)
+    header('Location: index.html?error=email_failed');
+    exit;
 }
-
-exit;
