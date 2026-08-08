@@ -1,6 +1,6 @@
 # SureLM Application Form
 
-A single-page job application form for SureLM with referral tracking, client-side validation, and email submission via a PHP backend.
+A single-page job application form for SureLM with referral tracking, client-side validation, and email submission via a PHP backend. Built with **vanilla HTML/CSS/JS** — no build step, no Node.js required.
 
 ## Features
 
@@ -9,51 +9,51 @@ A single-page job application form for SureLM with referral tracking, client-sid
 - Client-side validation: required fields, email/phone/URL formats, file type and size (10MB max)
 - Drag-and-drop file uploads with inline error messages
 - Form draft persistence in localStorage (cleared on successful submit)
-- Dark, responsive design using CSS Modules
+- Dark, responsive design
 
-## Tech Stack
+## Files
 
-- React 19 + TypeScript + Vite
-- React Router v7
-- CSS Modules
-- PHP (`send.php`) for email delivery with file attachments
-- Apache `.htaccess` for SPA routing and security headers
-
-## Getting Started
-
-```bash
-npm install
-npm run dev
+```
+index.html        Main form page
+thank-you.html    Success page
+send.php          PHP email handler (multipart, file attachments)
+.htaccess         Apache SPA routing + referral slugs + security headers
+css/styles.css    All styles
+js/referral.js    Referral detection from the URL path
+js/storage.js     localStorage draft persistence
+js/form.js        Form logic, validation, and submission
+favicon.svg       Site icon
+fonts.css         Google Fonts loading
 ```
 
-Open http://localhost:5173
+## Local Testing
 
-Referral links: http://localhost:5173/soham (valid slugs: `soham`, `saksham`, `harsh`, `harshit`)
-
-> Note: the PHP backend is only available on a PHP server. Configure `send.php`'s recipient email before deploying.
-
-## Scripts
+Serve the directory with any static server (PHP recommended so submissions work):
 
 ```bash
-npm run dev      # start dev server
-npm run build    # type-check + production build to dist/
-npm run preview  # preview the production build
-npm run lint     # run oxlint
+php -S localhost:8000
 ```
+
+Open http://localhost:8000
+
+Referral links: http://localhost:8000/soham (valid slugs: `soham`, `saksham`, `harsh`, `harshit`)
+
+> Note: `send.php` uses PHP's `mail()`. Configure the recipient email inside `send.php` before deploying.
 
 ## Deployment
 
-1. `npm run build`
-2. Upload `dist/`, `send.php`, `.htaccess`, and `public/` to an Apache/PHP host.
+No build step needed. Upload all files to any PHP/Apache host (cPanel, FTP, etc.):
 
-## Project Structure
+1. Upload the whole directory contents to your web root (or a subdirectory)
+2. Confirm `.htaccess` is included (hidden file — some FTP clients skip it)
+3. Open your domain. Referral links like `/soham` work as-is
 
-```
-src/
-  components/   JoinForm, ThankYouPage
-  hooks/        useReferral (slug → referrer mapping)
-  styles/       CSS Modules + global styles
-  types/        TypeScript types for the form
-send.php        PHP email handler (multipart, file attachments)
-vite.config.ts  Vite config with /send.php proxy
+If hosting in a **subdirectory**, no changes are needed — paths and `.htaccess` rules are relative.
+
+## Configuring the Recipient Email
+
+Open `send.php` and update the `$to` variable:
+
+```php
+$to = "your-email@example.com";
 ```

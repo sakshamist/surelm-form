@@ -1,20 +1,16 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /
 
-  # Serve existing files directly (CSS, JS, images, etc.)
+  # Serve existing files and directories directly (css/, js/, send.php, etc.)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Handle PHP files directly
-  RewriteRule ^send\.php$ - [L]
+  # Referral slugs (soham, saksham, harsh, harshit) -> index.html
+  RewriteRule ^(soham|saksham|harsh|harshit)/?$ index.html [L]
 
-  # Handle referrer paths (soham, saksham, harsh, harshit)
-  RewriteRule ^(soham|saksham|harsh|harshit)/?$ /index.html [L]
-
-  # SPA routing - redirect all other paths to index.html
-  RewriteRule . /index.html [L]
+  # SPA fallback - all other paths -> index.html
+  RewriteRule . index.html [L]
 </IfModule>
 
 # Security headers

@@ -1,6 +1,29 @@
 @import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
-.page {
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: "Inter", -apple-system, sans-serif;
+}
+
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+}
+
+/* Design tokens */
+:root {
   --ink: #0a0c10;
   --surface: #12151b;
   --bone: #ece9e2;
@@ -9,7 +32,9 @@
   --signal: #e8a33d;
   --ledger: #5b8c7b;
   --error: #d9694f;
+}
 
+.page {
   background: var(--ink);
   color: var(--bone);
   min-height: 100vh;
@@ -42,6 +67,7 @@
   border-radius: 50%;
   background: var(--signal);
   box-shadow: 0 0 0 3px rgba(232, 163, 61, 0.15);
+  flex-shrink: 0;
 }
 
 .headline {
@@ -197,9 +223,11 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+  transition: border-color 0.15s ease;
 }
 
-.fileDrop:hover {
+.fileDrop:hover,
+.fileDrop.dragOver {
   border-color: var(--ledger);
   color: var(--bone);
 }
@@ -219,6 +247,7 @@
   font-family: "IBM Plex Mono", monospace;
   font-size: 12px;
   margin-top: 6px;
+  min-height: 0;
 }
 
 .charCount {
@@ -249,6 +278,10 @@
   padding: 14px 28px;
   cursor: pointer;
   transition: opacity 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
 }
 
 .submitButton:hover:not(:disabled) {
@@ -260,13 +293,6 @@
   cursor: not-allowed;
 }
 
-.submitButton:has(.spinner) {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: center;
-}
-
 .spinner {
   width: 14px;
   height: 14px;
@@ -274,6 +300,7 @@
   border-top-color: transparent;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
+  display: inline-block;
 }
 
 @keyframes spin {
@@ -318,6 +345,7 @@
   transition: opacity 0.15s ease;
   margin-top: 24px;
   display: inline-block;
+  text-decoration: none;
 }
 
 .backButton:hover {
@@ -336,6 +364,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.referralBanner[hidden] {
+  display: none;
 }
 
 .referralBanner .dot {

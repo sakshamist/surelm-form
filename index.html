@@ -5,11 +5,276 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="referrer" content="no-referrer" />
     <title>Join SureLM</title>
-    <link rel="icon" href="/favicon.svg" />
-    <link rel="stylesheet" href="/fonts.css" />
+    <link rel="icon" href="favicon.svg" />
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="css/styles.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div class="referralBanner" id="referralBanner" hidden>
+      <span class="dot"></span>
+      <span id="referralText"></span>
+    </div>
+
+    <div class="page">
+      <div class="container">
+        <div class="eyebrow">
+          <span class="dot"></span>
+          Page 1 of 1 &middot; No rigid roles
+        </div>
+        <h1 class="headline">Join SureLM</h1>
+        <p class="lede">
+          SureLM is building systems for intelligent insurance distribution.
+        </p>
+        <p class="ledeStrong">
+          We&apos;re looking for people who think deeply, build obsessively, and want to
+          contribute meaningfully. Tell us how you think you can help.
+        </p>
+
+        <form class="form" id="joinForm" novalidate>
+          <input type="hidden" name="referred_by" id="referredBy" value="" />
+
+          <div class="field" id="field-fullname">
+            <span class="index">01</span>
+            <div class="fieldBody">
+              <label class="label" for="fullname">
+                What&apos;s your name?
+                <span class="required">*</span>
+              </label>
+              <input
+                class="input"
+                id="fullname"
+                name="fullname"
+                type="text"
+                required
+              />
+              <span class="fieldError" id="error-fullname"></span>
+            </div>
+          </div>
+
+          <div class="field email" id="field-email">
+            <span class="index">02</span>
+            <div class="fieldBody">
+              <label class="label" for="email">
+                What&apos;s your email?
+                <span class="required">*</span>
+              </label>
+              <input
+                class="input"
+                id="email"
+                name="email"
+                type="email"
+                required
+              />
+              <span class="fieldError" id="error-email"></span>
+            </div>
+          </div>
+
+          <div class="field phone" id="field-phone">
+            <span class="index">03</span>
+            <div class="fieldBody">
+              <label class="label" for="phone">
+                What&apos;s your phone number?
+                <span class="required">*</span>
+              </label>
+              <input
+                class="input"
+                id="phone"
+                name="phone"
+                type="tel"
+                required
+              />
+              <span class="fieldError" id="error-phone"></span>
+            </div>
+          </div>
+
+          <div class="field linkedin" id="field-linkedin">
+            <span class="index">04</span>
+            <div class="fieldBody">
+              <label class="label" for="linkedin">
+                LinkedIn Profile / Website
+              </label>
+              <input
+                class="input"
+                id="linkedin"
+                name="linkedin"
+                type="url"
+                placeholder="https://..."
+              />
+              <span class="fieldError" id="error-linkedin"></span>
+            </div>
+          </div>
+
+          <div class="field" id="field-contribution">
+            <span class="index">05</span>
+            <div class="fieldBody">
+              <label class="label" for="contribution">
+                How would you like to contribute to SureLM?
+                <span class="required">*</span>
+              </label>
+              <p class="hint">Don't think in terms of titles. Tell us what you'd want to build, improve, research, design, sell, or rethink.</p>
+              <textarea
+                class="textarea"
+                id="contribution"
+                name="contribution"
+                required
+              ></textarea>
+              <span class="charCount" id="count-contribution">0 characters</span>
+              <span class="fieldError" id="error-contribution"></span>
+            </div>
+          </div>
+
+          <div class="field" id="field-interests">
+            <span class="index">06</span>
+            <div class="fieldBody">
+              <label class="label" for="interests">
+                What about insurance, AI, systems, distribution, or our direction interests you?
+                <span class="required">*</span>
+              </label>
+              <textarea
+                class="textarea"
+                id="interests"
+                name="interests"
+                required
+              ></textarea>
+              <span class="charCount" id="count-interests">0 characters</span>
+              <span class="fieldError" id="error-interests"></span>
+            </div>
+          </div>
+
+          <div class="field" id="field-work_showcase">
+            <span class="index">07</span>
+            <div class="fieldBody">
+              <label class="label" for="work_showcase">
+                Show us something you&apos;ve worked on.
+                <span class="required">*</span>
+              </label>
+              <p class="hint">Could be:
+code
+design
+writing
+research
+sales work
+strategy
+a side project
+anything meaningful
+
+Links are welcome.</p>
+              <textarea
+                class="textarea"
+                id="work_showcase"
+                name="work_showcase"
+                required
+              ></textarea>
+              <span class="charCount" id="count-work_showcase">0 characters</span>
+              <span class="fieldError" id="error-work_showcase"></span>
+            </div>
+          </div>
+
+          <div class="field" id="field-ownership">
+            <span class="index">08</span>
+            <div class="fieldBody">
+              <label class="label" for="ownership">
+                If we gave you ownership tomorrow, what would you work on first?
+                <span class="required">*</span>
+              </label>
+              <textarea
+                class="textarea"
+                id="ownership"
+                name="ownership"
+                required
+              ></textarea>
+              <span class="charCount" id="count-ownership">0 characters</span>
+              <span class="fieldError" id="error-ownership"></span>
+            </div>
+          </div>
+
+          <div class="field" id="field-involvement">
+            <span class="index">09</span>
+            <div class="fieldBody">
+              <label class="label">
+                How involved are you looking to be?
+                <span class="required">*</span>
+              </label>
+              <div class="radioGroup" role="radiogroup" id="involvementGroup">
+                <label class="radioOption">
+                  <input type="radio" name="involvement" value="Just exploring for now" />
+                  Just exploring for now
+                </label>
+                <label class="radioOption">
+                  <input type="radio" name="involvement" value="Part-time, alongside other commitments" />
+                  Part-time, alongside other commitments
+                </label>
+                <label class="radioOption">
+                  <input type="radio" name="involvement" value="Deeply, as a core ongoing contributor" />
+                  Deeply, as a core ongoing contributor
+                </label>
+                <label class="radioOption">
+                  <input type="radio" name="involvement" value="Ready to go all-in / full-time" />
+                  Ready to go all-in / full-time
+                </label>
+              </div>
+              <span class="fieldError" id="error-involvement"></span>
+            </div>
+          </div>
+
+          <div class="field" id="field-resume">
+            <span class="index">10</span>
+            <div class="fieldBody">
+              <label class="label" for="resume-file">
+                Resume / Portfolio / Anything relevant
+                <span class="required">*</span>
+              </label>
+              <p class="hint">Accepted: PDF, DOC, DOCX, TXT</p>
+              <label class="fileDrop" id="resume-drop" for="resume-file">
+                <span id="resume-name">Click to choose a file or drag here</span>
+                <span>10MB max</span>
+              </label>
+              <input
+                id="resume-file"
+                name="resume"
+                type="file"
+                accept=".pdf,.doc,.docx,.txt"
+                style="display: none"
+                required
+              />
+              <span class="fieldError" id="error-resume"></span>
+            </div>
+          </div>
+
+          <div class="field" id="field-other">
+            <span class="index">11</span>
+            <div class="fieldBody">
+              <label class="label" for="other-file">
+                Anything else?
+              </label>
+              <p class="hint">Accepted: PDF, DOC, DOCX, TXT, images, ZIP</p>
+              <label class="fileDrop" id="other-drop" for="other-file">
+                <span id="other-name">Click to choose a file or drag here</span>
+                <span>10MB max</span>
+              </label>
+              <input
+                id="other-file"
+                name="other"
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.webp,.zip"
+                style="display: none"
+              />
+              <span class="fieldError" id="error-other"></span>
+            </div>
+          </div>
+
+          <div class="submitRow">
+            <button class="submitButton" id="submitButton" type="submit">
+              Submit
+            </button>
+            <span class="status error" id="formError"></span>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="js/referral.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/form.js"></script>
   </body>
 </html>
