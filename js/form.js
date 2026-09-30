@@ -257,14 +257,14 @@
     };
   }
 
-  function setStatus(nextStatus) {
+  function setStatus(nextStatus, label) {
     status = nextStatus;
     var button = $('submitButton');
     if (!button) return;
 
     if (status === 'submitting') {
       button.disabled = true;
-      button.innerHTML = '<span class="spinner"></span> Sending\u2026';
+      button.innerHTML = '<span class="spinner"></span> ' + (label || 'Sending\u2026');
     } else {
       button.disabled = false;
       button.textContent = 'Submit';
@@ -313,14 +313,50 @@
   }
 
   var SUBMIT_ERROR = 'We could not send your application. Your details are still here — please try again.';
-  var SUBMIT_TIMEOUT = 45000;
+  var SUBMIT_TIMEOUT = 30000;
+  var SUBMIT_ATTEMPTS = 3;
+
+  // Delays between attempts, indexed by the attempt that just failed. The gaps
+  // are long enough for the host's bot protection to have issued a cookie on the
+  // dropped request, which is what lets the next attempt through.
+  var SUBMIT_BACKOFF = [900, 2500];
+
+  /**
+   * A token identifying one submission intent.
+   *
+   * It is generated once per submit click and reused across every attempt, so
+   * the server can recognise a retry and suppress a second email. A click after
+   * the applicant edits the form is a new intent and therefore a new token.
+   */
+  function newSubmissionToken() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return window.crypto.randomUUID();
+    }
+
+    var bytes = new Uint8Array(16);
+
+    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+      window.crypto.getRandomValues(bytes);
+    } else {
+      for (var i = 0; i < bytes.length; i++) {
+        bytes[i] = Math.floor(Math.random() * 256);
+      }
+    }
+
+    var hex = '';
+    for (var j = 0; j < bytes.length; j++) {
+      hex += ('0' + bytes[j].toString(16)).slice(-2);
+    }
+
+    return hex;
+  }
 
   function isJsonResponse(res) {
     var contentType = res.headers.get('Content-Type') || '';
     return contentType.toLowerCase().indexOf('application/json') !== -1;
   }
 
-  function buildPayload() {
+  function buildPayload(token) {
     var data = new FormData();
     var fields = [
       'fullname', 'email', 'phone', 'linkedin', 'contribution',
@@ -337,6 +373,10 @@
     // Honeypot: the server rejects anything that arrives filled in.
     var honeypot = $('website_url');
     data.append('website_url', honeypot ? honeypot.value : '');
+
+    // Rebuilt from the live File objects on every attempt, so a retry re-sends
+    // the real bytes without the applicant re-picking anything.
+    data.append('submit_token', token || '');
 
     return data;
   }
@@ -361,6 +401,60 @@
       window.clearTimeout(timer);
       throw err;
     });
+  }
+
+  /**
+   * A failure where no response arrived at all, as opposed to one the server
+   * actually answered. TypeError is what fetch rejects with when the connection
+   * is dropped mid-flight; AbortError is our own timeout.
+   */
+  function isTransportFailure(err) {
+    return !!err && (err.name === 'TypeError' || err.name === 'AbortError');
+  }
+
+  /**
+   * POST the payload, retrying only dropped connections.
+   *
+   * The host kills the first request often enough that the form is unusable
+   * without this. Once a response arrives it is final and is handed straight
+   * back: retrying a server-side rejection would only resubmit work the server
+   * already refused.
+   */
+  function submitWithRetry(endpoint, token, onAttempt) {
+    var attempt = 0;
+
+    function attemptOnce() {
+      attempt++;
+
+      if (onAttempt) onAttempt(attempt);
+
+      return fetchWithTimeout(
+        endpoint,
+        { method: 'POST', body: buildPayload(token) },
+        SUBMIT_TIMEOUT
+      );
+    }
+
+    function run() {
+      return attemptOnce().catch(function (err) {
+        if (attempt >= SUBMIT_ATTEMPTS || !isTransportFailure(err)) {
+          throw err;
+        }
+
+        var wait = SUBMIT_BACKOFF[attempt - 1] || SUBMIT_BACKOFF[SUBMIT_BACKOFF.length - 1];
+
+        console.warn(
+          '[surelm] attempt ' + attempt + '/' + SUBMIT_ATTEMPTS + ' dropped (' +
+          (err && err.name ? err.name : 'error') + '), retrying in ' + wait + 'ms'
+        );
+
+        return new Promise(function (resolve) {
+          window.setTimeout(resolve, wait);
+        }).then(run);
+      });
+    }
+
+    return run();
   }
 
   function handleSubmit(e) {
@@ -390,8 +484,16 @@
 
     // The endpoint lives on the form's action attribute - single source of truth.
     var endpoint = $('joinForm').getAttribute('action');
+    var token = newSubmissionToken();
 
-    fetchWithTimeout(endpoint, { method: 'POST', body: buildPayload() }, SUBMIT_TIMEOUT)
+    submitWithRetry(endpoint, token, function (attempt) {
+      setStatus(
+        'submitting',
+        attempt === 1
+          ? null
+          : 'Retrying (' + attempt + ' of ' + SUBMIT_ATTEMPTS + ')\u2026'
+      );
+    })
       .then(function (res) {
         // A catch-all / WAF challenge answers with HTML. Never treat that as success.
         if (!isJsonResponse(res)) {
@@ -427,10 +529,21 @@
         if (err) {
           if (err.name === 'AbortError') {
             message = 'The upload took too long and was cancelled. Your details are still here — please try again.';
+          } else if (isTransportFailure(err)) {
+            // Never surfaces as an exception: fetch rejects with a bare TypeError.
+            message = 'We could not reach the server after ' + SUBMIT_ATTEMPTS +
+              ' attempts. Your details are still here — please try again.';
           } else if (err.message && err.message !== 'non-json') {
             message = err.message;
           }
         }
+
+        console.warn(
+          '[surelm] submission failed',
+          err && err.name,
+          err && err.message,
+          isTransportFailure(err)
+        );
 
         showError(message);
       });
