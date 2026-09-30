@@ -24,6 +24,7 @@
           We&apos;re looking for people who think deeply, build obsessively, and want to
           contribute meaningfully. Tell us how you think you can help.
         </p>
+        <p class="hint">Please note: This is an unpaid internship opportunity.</p>
 
         <form class="form" id="joinForm" action="quokka.php" method="POST" enctype="multipart/form-data" novalidate>
           <div class="referralBox" id="referralBox" hidden>
@@ -32,6 +33,12 @@
           </div>
 
           <input type="hidden" name="referred_by" id="referredBy" value="" />
+
+          <!-- Honeypot: hidden from applicants, filled in by bots. -->
+          <div class="hpField" aria-hidden="true">
+            <label for="website_url">Leave this field empty</label>
+            <input type="text" id="website_url" name="website_url" tabindex="-1" autocomplete="off" value="" />
+          </div>
 
           <div class="field" id="field-fullname">
             <span class="index">01</span>
@@ -46,6 +53,7 @@
                 name="fullname"
                 type="text"
                 required
+                maxlength="120"
               />
               <span class="fieldError" id="error-fullname"></span>
             </div>
@@ -82,6 +90,7 @@
                 name="phone"
                 type="tel"
                 required
+                maxlength="40"
               />
               <span class="fieldError" id="error-phone"></span>
             </div>
@@ -99,6 +108,7 @@
                 name="linkedin"
                 type="url"
                 placeholder="https://..."
+                maxlength="500"
               />
               <span class="fieldError" id="error-linkedin"></span>
             </div>
@@ -117,6 +127,7 @@
                 id="contribution"
                 name="contribution"
                 required
+                maxlength="5000"
               ></textarea>
               <span class="charCount" id="count-contribution">0 characters</span>
               <span class="fieldError" id="error-contribution"></span>
@@ -135,6 +146,7 @@
                 id="interests"
                 name="interests"
                 required
+                maxlength="5000"
               ></textarea>
               <span class="charCount" id="count-interests">0 characters</span>
               <span class="fieldError" id="error-interests"></span>
@@ -164,6 +176,7 @@ Links are welcome.</p>
                 id="work_showcase"
                 name="work_showcase"
                 required
+                maxlength="5000"
               ></textarea>
               <span class="charCount" id="count-work_showcase">0 characters</span>
               <span class="fieldError" id="error-work_showcase"></span>
@@ -182,6 +195,7 @@ Links are welcome.</p>
                 id="ownership"
                 name="ownership"
                 required
+                maxlength="5000"
               ></textarea>
               <span class="charCount" id="count-ownership">0 characters</span>
               <span class="fieldError" id="error-ownership"></span>

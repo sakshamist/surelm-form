@@ -98,6 +98,17 @@ button {
   border-top: 1px solid var(--hairline);
 }
 
+/* Honeypot: positioned off-screen rather than display:none, which some bots skip. */
+.hpField {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .field {
   display: flex;
   gap: 24px;

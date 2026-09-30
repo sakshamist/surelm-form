@@ -312,6 +312,57 @@
     return errors;
   }
 
+  var SUBMIT_ERROR = 'We could not send your application. Your details are still here — please try again.';
+  var SUBMIT_TIMEOUT = 45000;
+
+  function isJsonResponse(res) {
+    var contentType = res.headers.get('Content-Type') || '';
+    return contentType.toLowerCase().indexOf('application/json') !== -1;
+  }
+
+  function buildPayload() {
+    var data = new FormData();
+    var fields = [
+      'fullname', 'email', 'phone', 'linkedin', 'contribution',
+      'interests', 'work_showcase', 'ownership', 'involvement', 'referred_by',
+    ];
+
+    fields.forEach(function (field) {
+      data.append(field, formData[field] || '');
+    });
+
+    if (formData.resume) data.append('resume', formData.resume);
+    if (formData.other) data.append('other', formData.other);
+
+    // Honeypot: the server rejects anything that arrives filled in.
+    var honeypot = $('website_url');
+    data.append('website_url', honeypot ? honeypot.value : '');
+
+    return data;
+  }
+
+  // Abort a request that hangs, so the button can never be stuck disabled.
+  function fetchWithTimeout(url, options, timeout) {
+    if (typeof AbortController === 'undefined') {
+      return fetch(url, options);
+    }
+
+    var controller = new AbortController();
+    var timer = window.setTimeout(function () {
+      controller.abort();
+    }, timeout);
+
+    options.signal = controller.signal;
+
+    return fetch(url, options).then(function (res) {
+      window.clearTimeout(timer);
+      return res;
+    }, function (err) {
+      window.clearTimeout(timer);
+      throw err;
+    });
+  }
+
   function handleSubmit(e) {
     e.preventDefault();
     if (status === 'submitting') return;
@@ -337,15 +388,52 @@
     showError('');
     setStatus('submitting');
 
-    // Clear localStorage before native form submission
-    window.SureLMStorage.clear();
+    // The endpoint lives on the form's action attribute - single source of truth.
+    var endpoint = $('joinForm').getAttribute('action');
 
-    // Use native form submission (bypasses bot-detection on fetch/AJAX)
-    // The form has action="quokka.php" method="POST" enctype="multipart/form-data"
-    // Remove the event listener to allow natural submission
-    var form = $('joinForm');
-    form.removeEventListener('submit', handleSubmit);
-    form.submit();
+    fetchWithTimeout(endpoint, { method: 'POST', body: buildPayload() }, SUBMIT_TIMEOUT)
+      .then(function (res) {
+        // A catch-all / WAF challenge answers with HTML. Never treat that as success.
+        if (!isJsonResponse(res)) {
+          throw new Error('non-json');
+        }
+        return res.json();
+      })
+      .then(function (result) {
+        // Strict handshake: thank-you requires success === true.
+        if (!result || result.success !== true) {
+          var message = (result && result.error) || SUBMIT_ERROR;
+
+          if (result && result.fields) {
+            Object.keys(result.fields).forEach(function (field) {
+              setFieldError(field, result.fields[field]);
+            });
+          }
+
+          throw new Error(message);
+        }
+
+        // Only now is the submission confirmed.
+        window.SureLMStorage.clear();
+        setStatus('success');
+        window.location.href = 'thank-you.html';
+      })
+      .catch(function (err) {
+        // Keep the form intact so the applicant can retry immediately.
+        setStatus('idle');
+
+        var message = SUBMIT_ERROR;
+
+        if (err) {
+          if (err.name === 'AbortError') {
+            message = 'The upload took too long and was cancelled. Your details are still here — please try again.';
+          } else if (err.message && err.message !== 'non-json') {
+            message = err.message;
+          }
+        }
+
+        showError(message);
+      });
   }
 
   /* ---------- init ---------- */

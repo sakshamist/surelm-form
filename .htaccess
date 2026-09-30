@@ -7,9 +7,22 @@
   RewriteRule ^ - [L]
 
   # Referral slugs (soham, saksham, harsh, harshit) -> index.html
+  # Page views only: a POST must never be answered with the form.
+  RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
   RewriteRule ^(soham|saksham|harsh|harshit)/?$ index.html [L]
 
-  # SPA fallback - all other paths -> index.html
+  # Referral-prefixed endpoint -> the real handler.
+  # The form's action is relative, so on /soham/ it posts to /soham/quokka.php.
+  RewriteRule ^(soham|saksham|harsh|harshit)/quokka\.php$ quokka.php [L]
+
+  # quokka.php redirects to a relative 'thank-you.html', which resolves against
+  # the request URI above. Map it back to the real file.
+  RewriteRule ^(soham|saksham|harsh|harshit)/thank-you\.html$ thank-you.html [L]
+
+  # SPA fallback - page views only.
+  # Without this guard every 404 (e.g. a missing thank-you.html) is silently
+  # rewritten into a 200 serving index.html, which reads as a form rerender.
+  RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
   RewriteRule . index.html [L]
 </IfModule>
 
