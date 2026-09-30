@@ -18,6 +18,8 @@
  *    to the web root, so a malicious upload cannot be executed.
  *  - Field lengths are capped so a single request cannot exhaust memory.
  *  - A honeypot plus per-IP throttling blunt trivial mail-relay abuse.
+ *  - A submission token makes retries idempotent, so a request the client
+ *    could not receive the answer to is never delivered twice.
  */
 
 error_reporting(E_ALL);
@@ -48,6 +50,19 @@ define('MAX_NAME_LENGTH', 120);
 define('THROTTLE_WINDOW', 60);                     // seconds
 define('THROTTLE_MAX', 5);                         // submissions per window
 define('HONEYPOT_FIELD', 'website_url');
+
+/*
+ * Idempotency. The client retries a dropped request with the same submit_token,
+ * because some hosts (BigRock's bot protection among them) kill the first POST
+ * without ever sending a response. Without this, a retry whose first attempt
+ * actually reached mail() would send a second application.
+ *
+ * Markers live in their own 0700 directory under the system temp dir rather
+ * than loose in /tmp, so other tenants sharing that directory cannot read
+ * them. They hold a success flag and no applicant data.
+ */
+define('IDEM_DIR', sys_get_temp_dir() . '/surelm_idem');
+define('IDEM_TOKEN_MAX', 64);                      // a UUID fits comfortably
 
 /* Extension => list of acceptable magic-byte prefixes / container signatures. */
 $ALLOWED_EXTENSIONS = array(
@@ -96,6 +111,91 @@ function fail($message, $fields = array())
 function log_line($message)
 {
     error_log('[quokka] ' . $message);
+}
+
+/**
+ * Record the limits and body size of the request in flight.
+ *
+ * A request that dies without a response leaves nothing to inspect, so the
+ * next occurrence of one can be explained from the error log alone instead of
+ * requiring guesswork about the host's configuration.
+ */
+function log_request_context()
+{
+    log_line(sprintf(
+        'request sapi=%s mem=%s exec=%s post_max=%s upload_max=%s body=%d',
+        PHP_SAPI,
+        ini_get('memory_limit'),
+        ini_get('max_execution_time'),
+        ini_get('post_max_size'),
+        ini_get('upload_max_filesize'),
+        isset($_SERVER['CONTENT_LENGTH']) ? (int) $_SERVER['CONTENT_LENGTH'] : 0
+    ));
+}
+
+/**
+ * Marker path for a submission token, or null when the store is unusable.
+ *
+ * The token is attacker-controlled, so it is hashed rather than interpolated
+ * into a filename; that also keeps a long or path-shaped token harmless.
+ */
+function idem_path($token)
+{
+    if ($token === '') {
+        return null;
+    }
+
+    if (!is_dir(IDEM_DIR)) {
+        @mkdir(IDEM_DIR, 0700, true);
+    }
+
+    if (is_dir(IDEM_DIR)) {
+        @chmod(IDEM_DIR, 0700);
+    }
+
+    if (!is_dir(IDEM_DIR) || !is_writable(IDEM_DIR)) {
+        log_line('idempotency store unavailable at ' . IDEM_DIR);
+        return null;
+    }
+
+    return IDEM_DIR . '/' . hash('sha256', $token) . '.dat';
+}
+
+/**
+ * Return the stored result for a previously seen token, or null if unseen.
+ */
+function idem_read($path)
+{
+    if ($path === null || !is_readable($path)) {
+        return null;
+    }
+
+    $raw = @file_get_contents($path);
+
+    if ($raw === false || $raw === '') {
+        return null;
+    }
+
+    $decoded = json_decode($raw, true);
+
+    return is_array($decoded) ? $decoded : null;
+}
+
+function idem_write($path, $payload)
+{
+    if ($path === null) {
+        return;
+    }
+
+    @file_put_contents($path, json_encode($payload), LOCK_EX);
+    @chmod($path, 0600);
+}
+
+function idem_clear($path)
+{
+    if ($path !== null) {
+        @unlink($path);
+    }
 }
 
 /**
@@ -149,7 +249,25 @@ if (post_string(HONEYPOT_FIELD) !== '') {
     fail('Your submission could not be processed.');
 }
 
-/* ---------- 3. throttle ---------- */
+/* ---------- 3. idempotency ---------- */
+
+// Must run above the throttle: a retry is the same submission, so it must not
+// consume another slot in the per-minute budget.
+$idem_token = post_string('submit_token', IDEM_TOKEN_MAX);
+$idem_file = idem_path($idem_token);
+
+if ($idem_file !== null) {
+    $seen = idem_read($idem_file);
+
+    if ($seen !== null) {
+        log_line('replay suppressed for token ' . substr(hash('sha256', $idem_token), 0, 12));
+        respond(true);
+    }
+}
+
+log_request_context();
+
+/* ---------- 4. throttle ---------- */
 
 function client_ip()
 {
@@ -177,7 +295,7 @@ if (is_readable($throttle_file)) {
     }
 }
 
-/* ---------- 4. body received at all? ---------- */
+/* ---------- 5. body received at all? ---------- */
 
 // If POST data is empty but a body was sent, PHP discarded it (post_max_size).
 if (empty($_POST) && isset($_SERVER['CONTENT_LENGTH']) && (int) $_SERVER['CONTENT_LENGTH'] > 0) {
@@ -185,7 +303,7 @@ if (empty($_POST) && isset($_SERVER['CONTENT_LENGTH']) && (int) $_SERVER['CONTEN
     fail('The submission was too large for the server. Please try a smaller file.');
 }
 
-/* ---------- 5. validate fields ---------- */
+/* ---------- 6. validate fields ---------- */
 
 $fields = array(
     'fullname' => post_string('fullname', MAX_NAME_LENGTH),
@@ -220,7 +338,7 @@ if (!empty($errors)) {
     fail('Please fix the highlighted fields and try again.', $errors);
 }
 
-/* ---------- 6. validate uploads ---------- */
+/* ---------- 7. validate uploads ---------- */
 
 /**
  * Validate one uploaded file. Returns array('tmp' => path, 'name' => safe name)
@@ -386,7 +504,7 @@ if (count($attachments) === 0) {
     fail('No files were received. Please attach your resume and try again.');
 }
 
-/* ---------- 7. build + send ---------- */
+/* ---------- 8. build + send ---------- */
 
 // Control characters were already stripped, so nothing here can inject a header.
 $reply_to = $fields['email'];
@@ -448,11 +566,25 @@ foreach ($attachments as $label => $file) {
 
 $body .= "--{$boundary}--";
 
+/*
+ * Stamp before sending, never after. If PHP dies between mail() accepting the
+ * message and the response being written, a marker written afterwards would be
+ * missing and the client's retry would send a duplicate application. Writing it
+ * first costs the opposite failure - a request that dies mid-send reports
+ * success - which is the better trade: at worst the applicant is told it went
+ * through, rather than a mailbox collecting two copies of every submission.
+ */
+idem_write($idem_file, array('success' => true));
+
 if (@mail($to, $subject, $body, $headers)) {
     throttle_record($throttle_file);
     log_line('mail accepted for ' . $fields['email'] . ' with ' . count($attachments) . ' attachment(s)');
     respond(true);
 }
+
+// Nothing left the building, so release the token: the applicant's retry must
+// be able to try again rather than replay a success that never happened.
+idem_clear($idem_file);
 
 log_line('mail() FAILED for ' . $fields['email']);
 fail('We could not send your application right now. Your details are still here — please try again.');
