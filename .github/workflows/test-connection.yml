@@ -1,0 +1,138 @@
+# .github/workflows/test-connection.yml
+#
+# Stage 3 helper (see docs/Workflow-Explanation.md): answers ONE question --
+# "Can a GitHub runner reach the server over SSH, log in with our key, and use
+# rsync there?"
+#
+#   >>> THIS WORKFLOW DEPLOYS NOTHING. It only connects and runs "whoami",
+#   >>> "uname" and "rsync --version" on the server, then disconnects.
+#
+# Start it two ways:
+#   - Actions tab -> Test connection -> Run workflow (manual button)
+#   - automatically on EVERY push to any branch (so the connection is
+#     re-verified whenever the repo changes; any day SSH breaks - host
+#     change, key revoked - the very next push shows it instantly).
+#
+# Requires these secrets FIRST (Settings -> Secrets and variables -> Actions):
+#   SSH_PRIVATE_KEY, SSH_HOST, SSH_PORT, SSH_USER, SSH_KNOWN_HOSTS
+#
+# How to create SSH_KNOWN_HOSTS (run on YOUR machine, paste output into the
+# secret - never commit it to the repo):
+#   ssh-keyscan -p <PORT> <SSH_HOST>
+#
+# Verdict map:
+#   test 2 (TCP) FAIL      -> port wrong OR the host blocks GitHub runner IPs
+#                             (IP-restriction question)
+#   test 4 (login) FAIL    -> key not installed in cPanel / wrong user
+#   test 5 (rsync) FAIL    -> rsync missing on server: Method B needs the
+#                             lftp/SFTP fallback instead
+
+name: Test connection
+
+on:
+  workflow_dispatch:            # manual "Run workflow" button
+  push:                         # every push, every branch - connection stays proven
+
+# This file only reads the repo.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10         # a hung connection test cannot block anything
+
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      CPANEL_PORT: ${{ vars.CPANEL_API_PORT || 2083 }}
+
+    steps:
+      # ---------------------------------------------------------------
+      - name: "0: are the secrets configured?"
+        run: |
+          missing=""
+          [ -n "$SSH_HOST" ] || missing="$missing SSH_HOST"
+          [ -n "$SSH_PORT" ] || missing="$missing SSH_PORT"
+          [ -n "$SSH_USER" ] || missing="$missing SSH_USER"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing secrets:$missing"
+            echo "Add them in Settings -> Secrets and variables -> Actions. Only the NAMES live in this file - values go into GitHub's secret store."
+            exit 1
+          fi
+          echo "Secrets found: SSH_HOST, SSH_PORT, SSH_USER (values masked by GitHub)"
+
+      # ---------------------------------------------------------------
+      - name: "1: load key + pinned server fingerprint from secrets"
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "::error::Secret SSH_PRIVATE_KEY is empty"; exit 1
+          fi
+          if [ -z "$SSH_KNOWN_HOSTS" ]; then
+            echo "::error::Secret SSH_KNOWN_HOSTS is empty. Generate it on your machine:  ssh-keyscan -p $SSH_PORT $SSH_HOST"
+            exit 1
+          fi
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          echo "SSH_OPTS=-i $HOME/.ssh/id_ed25519 -p $SSH_PORT -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15" >> "$GITHUB_ENV"
+          echo "Key and fingerprint loaded (never printed)."
+
+      # ---------------------------------------------------------------
+      - name: "2: TCP - can the runner reach the SSH port?"
+        run: |
+          echo "Opening TCP connection to $SSH_HOST:$SSH_PORT ..."
+          if timeout 10 bash -c "echo > /dev/tcp/$SSH_HOST/$SSH_PORT" 2>/dev/null; then
+            echo "PASS: port reachable"
+          else
+            echo "::error::TCP connection to $SSH_HOST:$SSH_PORT FAILED. Causes: wrong host/port, firewall, OR the host restricts SSH by IP (GitHub runner IPs change every run)."
+            exit 1
+          fi
+
+      # ---------------------------------------------------------------
+      - name: "3: TCP - cPanel API port (informational only)"
+        continue-on-error: true      # Method B does not need the cPanel API
+        run: |
+          echo "Probing $SSH_HOST:$CPANEL_PORT (cPanel API / web interface) ..."
+          if timeout 10 bash -c "echo > /dev/tcp/$SSH_HOST/$CPANEL_PORT" 2>/dev/null; then
+            echo "INFO: cPanel port reachable (would matter for Method A only)"
+          else
+            echo "INFO: cPanel port not reachable from the runner - irrelevant for Method B (SSH + rsync)."
+          fi
+
+      # ---------------------------------------------------------------
+      - name: "4: SSH login with the key"
+        run: |
+          ssh $SSH_OPTS "$SSH_USER@$SSH_HOST" \
+            "echo SSH_LOGIN_OK; whoami; uname -srm"
+          echo "PASS: key authentication works"
+
+      # ---------------------------------------------------------------
+      - name: "5: is rsync installed on the server?"
+        run: |
+          if ssh $SSH_OPTS "$SSH_USER@$SSH_HOST" "command -v rsync" >/dev/null 2>&1; then
+            ssh $SSH_OPTS "$SSH_USER@$SSH_HOST" "rsync --version | head -n 1"
+            echo "PASS: rsync available - Method B (rsync over SSH) is viable"
+          else
+            echo "::error::rsync NOT found on the server. Method B needs a fallback (lftp/SFTP upload or tar-over-SSH). Report this to your lead."
+            exit 1
+          fi
+
+      # ---------------------------------------------------------------
+      - name: "6: summary + key cleanup"
+        if: always()
+        run: |
+          echo "======================================================"
+          echo " Connection test finished - run $GITHUB_RUN_NUMBER"
+          echo " Host: $SSH_HOST  Port: $SSH_PORT  User: $SSH_USER"
+          echo " Look above: every test line says PASS / FAIL / INFO."
+          echo " Green job = Method B is viable. Red = see the ::error line."
+          echo "======================================================"
+          rm -f ~/.ssh/id_ed25519

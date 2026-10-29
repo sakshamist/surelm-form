@@ -1,0 +1,285 @@
+# .github/workflows/deploy.yml
+#
+# GitHub Actions port of the Jenkinsfile in this repo (Method B: SSH + rsync).
+# Stage 2 of docs/Workflow-Explanation.md — FULL FILE WITH PLACEHOLDERS.
+#
+#   Stage 2 (this file):  build-test job is ACTIVE and identical to the old
+#                         ci.yml. The deploy job is fully written but CANNOT
+#                         run yet: it needs repository secrets/variables that
+#                         have deliberately NOT been added (SSH keys are added
+#                         in a later, explicitly approved stage).
+#   Later stages:         add SSH secrets -> connection check -> first deploy
+#                         to the demo folder only.
+#
+# Stages of the pipeline (same order as the Jenkinsfile):
+#   build-test job  = Checkout -> Build -> Test
+#   deploy job      = Deploy (Layer 2 backup, Layer 3 excludes,
+#                      Layer 4 health check + rollback, Layer 5 safety rules)
+#
+# Reads these secrets (add them later, in Settings -> Secrets and variables -> Actions):
+#   SSH_PRIVATE_KEY, SSH_HOST, SSH_PORT, SSH_USER, SSH_KNOWN_HOSTS
+# And these variables:
+#   APP_NAME, REMOTE_DIR, BACKUP_DIR, SITE_URL, SERVER_ONLY, NODE_VERSION
+#
+# NEVER print, echo or commit secret values. Only the NAMES live in this file.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]            # push to main: build + test, and deploy job runs (once enabled)
+  pull_request:
+    branches: [main]            # PR toward main: build + test ONLY, never deploys
+  workflow_dispatch:            # manual "Run workflow" button (use for connection tests)
+
+# Layer 5: one deploy at a time per app. A running deploy is NEVER cancelled
+# halfway (cancel-in-progress: false) - a second push just waits in line.
+concurrency:
+  group: deploy-${{ vars.APP_NAME || 'demo' }}
+  cancel-in-progress: false
+
+# Least privilege: this workflow may only read the repository.
+permissions:
+  contents: read
+
+jobs:
+
+  # ---------------------------------------------------------------------
+  # STAGE 1+2 of Jenkins: Checkout -> Build -> Test  (active)
+  # This job is the old ci.yml, moved here, plus the "detect" step that
+  # decides WHAT will be uploaded later (Layer 3 guard).
+  # ---------------------------------------------------------------------
+  build-test:
+    runs-on: ubuntu-latest       # fresh Ubuntu VM from GitHub, deleted after the run
+    timeout-minutes: 15          # Layer 5: a stuck run cannot hang forever
+
+    outputs:
+      upload: ${{ steps.detect.outputs.upload }}         # dist | .
+      health_file: ${{ steps.detect.outputs.health_file }} # index.html | index.php
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ vars.NODE_VERSION || 20 }}
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          if [ -f package.json ]; then
+            npm ci
+          else
+            echo "No package.json (static/PHP repo) - skipping npm"
+          fi
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Test
+        run: npm test --if-present
+
+      - name: PHP lint
+        run: php -l quokka.php
+
+      - name: Show what was built
+        run: ls -la dist || echo "No dist folder (this project has no build output)"
+
+      # --- PHP repos (first company PHP repo will activate this block) ---
+      # When composer.json exists the pipeline would instead run:
+      #   - uses: shivammathur/setup-php@<pinned-sha>
+      #   - run: composer install --no-interaction --prefer-dist
+      #   - run: find . -name "*.php" -not -path "./vendor/*" -print0 | xargs -0 -r -n1 php -l
+      #   - run: if [ -x vendor/bin/phpunit ]; then vendor/bin/phpunit; fi
+      #   - run: composer install --no-dev --optimize-autoloader --no-interaction
+      # -------------------------------------------------------------------
+
+      # Layer 3 guard: decide what to upload, and REFUSE to continue if the
+      # upload folder has neither index.html nor index.php - an empty upload
+      # combined with "rsync --delete" would wipe the live site.
+      - name: Detect upload folder (Layer 3 guard)
+        id: detect
+        run: |
+          if [ -f dist/index.html ]; then
+            echo "upload=dist" >> "$GITHUB_OUTPUT"
+            echo "health_file=index.html" >> "$GITHUB_OUTPUT"
+            echo "Will upload: dist/ (built frontend), health check: index.html"
+          elif [ -f index.html ]; then
+            echo "upload=." >> "$GITHUB_OUTPUT"
+            echo "health_file=index.html" >> "$GITHUB_OUTPUT"
+            echo "Will upload: repo root, health check: index.html"
+          elif [ -f index.php ]; then
+            echo "upload=." >> "$GITHUB_OUTPUT"
+            echo "health_file=index.php" >> "$GITHUB_OUTPUT"
+            echo "Will upload: repo root, health check: index.php"
+          else
+            echo "::error::Refusing to deploy: neither dist/index.html, index.html nor index.php exists. Aborting before any rsync --delete could run."
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------
+  # STAGE 3 of Jenkins: Deploy  (fully written, NOT active yet)
+  #
+  # It cannot run until the SSH secrets/variables exist (later stage) AND
+  # the workflow runs as a push to main (PRs are excluded by the 'if').
+  # Everything below uses ${vars.*} and ${secrets.*} - NO placeholder
+  # server values are hardcoded in this file.
+  # ---------------------------------------------------------------------
+  deploy:
+    needs: build-test            # broken tests skip this job automatically
+    # Layer 5: only pushes to main deploy. PRs and feature branches never do.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: demo             # GitHub Environment "demo" (production + approval later)
+    timeout-minutes: 20           # Layer 5: no endless deploys
+
+    env:
+      APP_NAME:    ${{ vars.APP_NAME }}        # e.g. demo  |  demo-private
+      REMOTE_DIR:  ${{ vars.REMOTE_DIR }}      # e.g. /home/USER/public_html/demo   (OPEN QUESTION - placeholder)
+      BACKUP_DIR:  ${{ vars.BACKUP_DIR }}      # e.g. /home/USER/backups/demo       (OPEN QUESTION - placeholder)
+      SITE_URL:    ${{ vars.SITE_URL }}        # https://demo.example  (optional; empty = skip curl check)
+      SERVER_ONLY: ${{ vars.SERVER_ONLY }}     # extra rsync excludes, one per line (uploads/, config.php, ...)
+      SSH_HOST:    ${{ secrets.SSH_HOST }}     # OPEN QUESTION - placeholder until BigRock details arrive
+      SSH_PORT:    ${{ secrets.SSH_PORT }}     # OPEN QUESTION - placeholder
+      SSH_USER:    ${{ secrets.SSH_USER }}     # OPEN QUESTION - placeholder
+      HEALTH_FILE: ${{ needs.build-test.outputs.health_file }}
+      UPLOAD:      ${{ needs.build-test.outputs.upload }}
+      RUN:         ${{ github.run_number }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Fail fast, with a helpful message, while placeholders are unset.
+      - name: Check that SSH settings are configured (Layer 5 guard)
+        run: |
+          missing=""
+          [ -n "$APP_NAME"   ] || missing="$missing APP_NAME"
+          [ -n "$REMOTE_DIR" ] || missing="$missing REMOTE_DIR"
+          [ -n "$BACKUP_DIR" ] || missing="$missing BACKUP_DIR"
+          [ -n "$SSH_HOST"   ] || missing="$missing SSH_HOST"
+          [ -n "$SSH_PORT"   ] || missing="$missing SSH_PORT"
+          [ -n "$SSH_USER"   ] || missing="$missing SSH_USER"
+          if [ -n "$missing" ]; then
+            echo "::error::Not configured yet, refusing to deploy. Missing:$missing"
+            echo "Add the secrets/variables in Settings -> Secrets and variables -> Actions (see docs/Workflow-Explanation.md section 6)."
+            exit 1
+          fi
+          case "$REMOTE_DIR" in
+            *PLACEHOLDER*|*CHANGEME*) echo "::error::REMOTE_DIR still contains a placeholder value."; exit 1 ;;
+          esac
+
+      # --- SSH setup: key and fingerprint from secrets, never printed ----
+      - name: Set up SSH (key from secret, pinned host fingerprint)
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          # Private key: written to a file the runner deletes with the VM.
+          # GitHub masks secret values in logs; we still never echo them.
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Pinned fingerprint of the real server (from ssh-keyscan) - we do
+          # NOT disable host key checking; MITM connections will be refused.
+          printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          # Helper for every later step (same options Jenkins used, plus
+          # BatchMode so a broken key fails instead of hanging). The values
+          # are expanded NOW because GITHUB_ENV does not run the shell later.
+          echo "SSH_OPTS=-i $HOME/.ssh/id_ed25519 -p $SSH_PORT -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15" >> "$GITHUB_ENV"
+
+      # Layer 3: files/folders that must never be uploaded nor deleted on
+      # the server (.env secrets, node_modules, tests + SERVER_ONLY list).
+      - name: Write rsync exclude list (Layer 3)
+        run: |
+          {
+            echo '.git/'
+            echo '.github/'
+            echo '.gitignore'
+            echo 'Jenkinsfile'
+            echo '.rsync-exclude'
+            echo '.env'
+            echo '.env.*'
+            echo 'node_modules/'
+            echo 'tests/'
+            echo 'tmp/'
+            if [ -n "$SERVER_ONLY" ]; then
+              printf '%s\n' "$SERVER_ONLY"   # variable may hold several lines
+            fi
+          } > .rsync-exclude
+          echo "Exclude list (.rsync-exclude):"
+          cat .rsync-exclude
+
+      # Forensics: mark EXACTLY which run/commit is live (see Layer notes).
+      - name: Write version marker into upload folder
+        run: |
+          printf 'run=%s commit=%s time=%s\n' \
+            "$RUN" "$(git rev-parse --short HEAD)" "$(date -u +%FT%TZ)" \
+            > "$UPLOAD/version.txt"
+
+      # ---------------- Layer 2: backup before touching anything --------
+      - name: "Layer 2: backup live folder (keep newest 5)"
+        run: |
+          ssh $SSH_OPTS "$SSH_USER@$SSH_HOST" "
+            mkdir -p '$BACKUP_DIR' '$REMOTE_DIR' &&
+            cp -a '$REMOTE_DIR' '$BACKUP_DIR/backup-$RUN' &&
+            ls -1dt '$BACKUP_DIR'/backup-* | tail -n +6 | xargs -r rm -rf
+          "
+          echo "Backup created: $BACKUP_DIR/backup-$RUN"
+
+      # ---------------- Layers 3+4: upload ------------------------------
+      - name: "Layer 4: upload with rsync (exclude list + --delete)"
+        run: |
+          rsync -az --delete \
+            --exclude-from=.rsync-exclude \
+            -e "ssh $SSH_OPTS" \
+            "$UPLOAD/" "$SSH_USER@$SSH_HOST:$REMOTE_DIR/"
+          echo "Upload finished: $UPLOAD/ -> $REMOTE_DIR/"
+
+      # ---------------- Layer 4: health checks --------------------------
+      - name: "Layer 4: health check - entry file exists on server"
+        run: |
+          ssh $SSH_OPTS "$SSH_USER@$SSH_HOST" \
+            "test -f '$REMOTE_DIR/$HEALTH_FILE'"
+          echo "OK: $REMOTE_DIR/$HEALTH_FILE exists"
+
+      - name: "Layer 4: health check - site responds (SITE_URL set)"
+        # Skipped automatically when SITE_URL is empty (open question).
+        if: ${{ vars.SITE_URL != '' }}
+        run: |
+          curl -fsS --retry 3 --retry-delay 5 --max-time 20 \
+            -o /dev/null -w "HTTP %{http_code}\n" "$SITE_URL"
+
+      # ---------------- Layer 4: rollback on ANY failure above ----------
+      - name: "Layer 4: rollback from backup"
+        # Runs only when a previous deploy step failed AND the connection
+        # guard passed (no point ssh-ing with missing settings).
+        if: failure() && env.SSH_HOST != '' && env.REMOTE_DIR != ''
+        run: |
+          echo "Deploy failed - restoring backup-$RUN"
+          # Guard: never rsync from a folder that does not exist.
+          if ! ssh $SSH_OPTS "$SSH_USER@$SSH_HOST" \
+               "test -d '$BACKUP_DIR/backup-$RUN'"; then
+            echo "::error::Backup $BACKUP_DIR/backup-$RUN not found - cannot roll back. Git history (Layer 1) is the recovery path."
+            exit 1
+          fi
+          ssh $SSH_OPTS "$SSH_USER@$SSH_HOST" \
+            "rsync -a --delete '$BACKUP_DIR/backup-$RUN/' '$REMOTE_DIR/'"
+          echo "Rollback finished - live folder restored to the pre-deploy state."
+          # Keep the job FAILED after rollback (exit 1) so humans investigate.
+
+      # ---------------- Layer 5: failure alert --------------------------
+      - name: "Layer 5: alert"
+        if: failure()
+        run: |
+          echo "ALERT: deploy of '$APP_NAME' failed (run $RUN, repo $GITHUB_REPOSITORY)"
+          # Placeholder until the team decides: Slack / email / etc.
+
+      # Always remove the key file (the VM is destroyed anyway - belt and braces).
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
